@@ -1,10 +1,7 @@
 package de.jwtsecurity.jwtsecurity;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -22,4 +19,10 @@ public class AppUserController {
     public LoginResponse login(@RequestBody LoginRequest loginrequest) {
         return appUserService.login(loginrequest);
     }
+
+    @GetMapping("/logout/")
+    public void logout() {
+        appUserService.logout();
+    }
 }
+

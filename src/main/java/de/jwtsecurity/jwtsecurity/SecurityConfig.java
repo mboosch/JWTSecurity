@@ -39,6 +39,10 @@ public class SecurityConfig {
                                         request.getHeader("Authorization")
                                 ).orElse("")
                                 .replaceFirst("Bearer ", "");
+                        if (appUserService.isTokenBlacklisted(jwtToken)) {
+                            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token on blacklist.");
+                        }
+                        appUserService.cleanBlackList();
 
                         SecurityContextHolder
                                 .getContext()
@@ -52,7 +56,7 @@ public class SecurityConfig {
                     }
                 }, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests((auth -> auth
-                        .requestMatchers(HttpMethod.POST,"/signup/", "/login/")
+                        .requestMatchers(HttpMethod.POST,"/login/")
                         .permitAll()
                         .anyRequest()
                         .authenticated()
