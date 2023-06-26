@@ -3,6 +3,7 @@ package de.jwtsecurity.jwtsecurity;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
+import de.jwtsecurity.jwtsecurity.exceptions.ItemNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -100,4 +101,45 @@ public class AppUserService {
         }
     }
 
+    public boolean isTokenGettingOld() {
+        final Instant now = Instant.now();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthentication) {
+            Optional<Instant> issuedAt = ((JwtAuthentication) authentication).getIssuedAt();
+            if (issuedAt.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+            }
+            return now.compareTo(issuedAt.get().plus(5, ChronoUnit.MINUTES)) > 0;
+        } else return false;
+    }
+
+    public String renewAgedToken(String token) {
+        final Instant now = Instant.now();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userName = "";
+        String id = "";
+
+        if (authentication instanceof JwtAuthentication) {
+            Object userDetails = authentication.getDetails();
+            if (userDetails == null) {
+                throw new ItemNotFoundException("user not found while renewing token");
+            }
+
+            userName = userDetails.getClass().getName();
+            id = userDetails.getClass().getName();
+        }
+        try {
+            Algorithm algorithm = Algorithm.HMAC512(secret);
+            String newToken = JWT.create()
+                    .withClaim("id", id)
+                    .withClaim("username", userName)
+                    .withIssuedAt(Date.from(now))
+                    .withExpiresAt(Date.from(now.plus(tokenExpirationTime, ChronoUnit.MINUTES)))
+                    .sign(algorithm);
+            blacklistToken(token);
+            return newToken;
+        } catch (JWTCreationException exception) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+    }
 }

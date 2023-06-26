@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.time.Instant;
 import java.util.*;
 
 @RequiredArgsConstructor
@@ -70,5 +71,17 @@ public class JwtAuthentication implements Authentication {
         return getJwtClaims()
                 .map(claims -> claims.get("username").asString())
                 .orElse(null);
+    }
+
+    public Optional<Instant> getIssuedAt() {
+        DecodedJWT decodedJWT;
+        try {
+            Algorithm algorithm = Algorithm.HMAC512(jwtSecret);
+            JWTVerifier verifier = JWT.require(algorithm).build();
+            decodedJWT = verifier.verify(jwtToken);
+            return Optional.of(decodedJWT.getIssuedAtAsInstant());
+        } catch (JWTVerificationException exception){
+            return Optional.empty();
+        }
     }
 }

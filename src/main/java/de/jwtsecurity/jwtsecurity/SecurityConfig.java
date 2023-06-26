@@ -52,6 +52,12 @@ public class SecurityConfig {
                                                 appUserService,
                                                 jwtSecret));
 
+                        if (!jwtToken.equals("")) {
+                            if (appUserService.isTokenGettingOld()) {
+                                response.addHeader("Authorization", "Bearer " + appUserService.renewAgedToken(jwtToken));
+                            }
+                        }
+
                         filterChain.doFilter(request, response);
                     }
                 }, UsernamePasswordAuthenticationFilter.class)
