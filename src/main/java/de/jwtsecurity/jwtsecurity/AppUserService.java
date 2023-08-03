@@ -5,6 +5,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
 import de.jwtsecurity.jwtsecurity.exceptions.ItemNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -23,6 +24,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AppUserService {
+    @Setter
     @Value("jwt.secret")
     private String secret;
     private final AppUserRepository appUserRepository;
@@ -49,7 +51,6 @@ public class AppUserService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
         AppUser appUser = optionalAppUser.get();
-
         if (!passwordEncoder.matches(loginrequest.getPassword(), appUser.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
@@ -62,7 +63,7 @@ public class AppUserService {
                     .withExpiresAt(Date.from(now.plus(tokenExpirationTime, ChronoUnit.MINUTES)))
                     .sign(algorithm);
             return new LoginResponse(token);
-        } catch (JWTCreationException exception) {
+        } catch (JWTCreationException | IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
     }
