@@ -8,9 +8,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,6 +35,12 @@ class AppUserServiceTest {
     @Mock
     private TokenRepository testTokenRepository;
 
+    @Mock
+    private SecurityContext testSecurityContext;
+
+    @Mock
+    private JwtAuthentication testJwtAuthentication;
+
     private LoginRequest loginRequest;
     private AutoCloseable closeable;
 
@@ -43,8 +53,9 @@ class AppUserServiceTest {
     }
 
     @AfterEach
-    public void closeMocks() throws Exception {
+    public void cleanup() throws Exception {
         closeable.close();
+        SecurityContextHolder.clearContext();
     }
 
     AppUser testAppUser = new AppUser("", "testUser", "testPasswort", "BASIC");
@@ -67,9 +78,7 @@ class AppUserServiceTest {
     public void createUserThrowsResponseStatusExceptionIfUsernameExists() {
         when(testAppUserRepository.findByUsername(anyString())).thenReturn(Optional.of(new AppUser()));
 
-        assertThrows(ResponseStatusException.class, () -> {
-            testAppUserService.createUser(testAppUser);
-        });
+        assertThrows(ResponseStatusException.class, () -> testAppUserService.createUser(testAppUser));
     }
 
     @Test
@@ -124,4 +133,36 @@ class AppUserServiceTest {
         Assertions.assertEquals(expected, actual);
     }
 
+    @Test
+    void isTokenGettingOldReturnsFalseIfTokenIsNotOld() {
+        when(testSecurityContext.getAuthentication()).thenReturn(testJwtAuthentication);
+        when(testJwtAuthentication.getIssuedAt()).thenReturn(Optional.of(Instant.now().minus(4, ChronoUnit.MINUTES)));
+        SecurityContextHolder.setContext(testSecurityContext);
+        assertFalse(testAppUserService.isTokenGettingOld());
+    }
+
+    @Test
+    void isTokenGettingOldReturnsTrueIfTokenIs5MinOld() {
+        when(testSecurityContext.getAuthentication()).thenReturn(testJwtAuthentication);
+        when(testJwtAuthentication.getIssuedAt()).thenReturn(Optional.of(Instant.now().minus(5, ChronoUnit.MINUTES)));
+        SecurityContextHolder.setContext(testSecurityContext);
+        assertTrue(testAppUserService.isTokenGettingOld());
+    }
+
+    @Test
+    void isTokenGettingOldReturnsTrueIfTokenIsOld() {
+        when(testSecurityContext.getAuthentication()).thenReturn(testJwtAuthentication);
+        when(testJwtAuthentication.getIssuedAt()).thenReturn(Optional.of(Instant.now().minus(6, ChronoUnit.MINUTES)));
+        SecurityContextHolder.setContext(testSecurityContext);
+        assertTrue(testAppUserService.isTokenGettingOld());
+    }
+
+    @Test
+    void isTokenGettingOldReturnsForbiddenIfIssuedAtIsEmpty() {
+        when(testSecurityContext.getAuthentication()).thenReturn(testJwtAuthentication);
+        when(testJwtAuthentication.getIssuedAt()).thenReturn(Optional.empty());
+        SecurityContextHolder.setContext(testSecurityContext);
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> testAppUserService.isTokenGettingOld());
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
 }
